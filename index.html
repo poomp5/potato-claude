@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>น้อง potato</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sky-top: #bfd9f2;
+  --sky-bottom: #eef3fb;
+  --grass: #9fd4a9;
+  --grass-edge: #7dbd8b;
+  --ink: #2e3350;
+  --ink-soft: #5d6384;
+  --paper: #ffffff;
+  --sun: #ffc93c;
+  --sun-soft: #fff1c4;
+  --shadow: rgba(46, 51, 80, .14);
+  --star: transparent;
+  --rim: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sky-top: #161c38; --sky-bottom: #2c3561; --grass: #2f5b4b; --grass-edge: #244a3c;
+    --ink: #1d2140; --ink-soft: #b9bfdc; --paper: #f4f2ff; --sun: #ffc93c; --sun-soft: #fff1c4;
+    --shadow: rgba(0, 0, 0, .35); --star: rgba(255, 255, 255, .8);
+    --rim: drop-shadow(0 0 1.5px rgba(255, 255, 255, .75));
+  }
+}
+:root[data-theme="dark"] {
+  --sky-top: #161c38; --sky-bottom: #2c3561; --grass: #2f5b4b; --grass-edge: #244a3c;
+  --ink: #1d2140; --ink-soft: #b9bfdc; --paper: #f4f2ff; --sun: #ffc93c; --sun-soft: #fff1c4;
+  --shadow: rgba(0, 0, 0, .35); --star: rgba(255, 255, 255, .8);
+  --rim: drop-shadow(0 0 1.5px rgba(255, 255, 255, .75));
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  font-family: "Mali", "Thonburi", system-ui, sans-serif;
+  color: var(--ink);
+  background: linear-gradient(var(--sky-top), var(--sky-bottom) 70%) fixed, var(--sky-bottom);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+body::before { /* stars, only visible at night */
+  content: ""; position: fixed; inset: 0; pointer-events: none;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, var(--star), transparent),
+    radial-gradient(1px 1px at 28% 8%, var(--star), transparent),
+    radial-gradient(1.5px 1.5px at 47% 22%, var(--star), transparent),
+    radial-gradient(1px 1px at 63% 12%, var(--star), transparent),
+    radial-gradient(2px 2px at 81% 20%, var(--star), transparent),
+    radial-gradient(1px 1px at 91% 6%, var(--star), transparent),
+    radial-gradient(1px 1px at 6% 34%, var(--star), transparent),
+    radial-gradient(1.5px 1.5px at 72% 36%, var(--star), transparent);
+}
+
+header {
+  display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap;
+  gap: 8px 24px; padding: 20px 28px 0; position: relative;
+}
+h1 { margin: 0; font-size: 1.6rem; font-weight: 700; color: var(--ink-soft); }
+@media (prefers-color-scheme: light) { h1 { color: var(--ink); } }
+.summary { display: flex; gap: 10px; flex-wrap: wrap; }
+.summary span {
+  background: var(--paper); border: 2px solid var(--ink); border-radius: 999px;
+  padding: 2px 12px; font-size: .95rem; color: var(--ink);
+}
+.summary .hot { background: var(--sun); }
+.offline {
+  display: none; margin: 12px 28px 0; padding: 8px 14px; border-radius: 12px;
+  background: var(--paper); border: 2px dashed var(--ink); color: var(--ink); width: fit-content;
+}
+.offline.show { display: block; }
+.offline code { font-family: inherit; font-weight: 700; }
+
+main { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; position: relative; }
+.field {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end;
+  gap: 8px 28px; padding: 24px 24px 0; position: relative; z-index: 1;
+}
+.ground {
+  height: 64px; background: var(--grass); border-top: 4px solid var(--grass-edge);
+  border-radius: 50% 50% 0 0 / 28px 28px 0 0; margin-top: -26px;
+}
+
+.empty {
+  text-align: center; color: var(--ink-soft); font-size: 1.1rem; padding: 0 16px 48px; max-width: 34em; margin: 0 auto;
+}
+@media (prefers-color-scheme: light) { .empty { color: var(--ink); } }
+
+/* ---------- น้อง ---------- */
+.pet {
+  width: 210px; display: flex; flex-direction: column; align-items: center;
+  background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer;
+  transition: opacity .6s;
+}
+.pet:focus-visible { outline: 3px solid var(--sun); outline-offset: 6px; border-radius: 20px; }
+
+.bubble {
+  position: relative; min-height: 58px; max-width: 210px; display: flex; align-items: flex-end;
+  margin-bottom: 6px;
+}
+.bubble .say {
+  background: var(--paper); border: 2.5px solid var(--ink); border-radius: 18px;
+  padding: 6px 12px 7px; font-size: .95rem; line-height: 1.35; text-align: center;
+  box-shadow: 0 3px 0 var(--shadow); overflow-wrap: anywhere;
+}
+.bubble .say::after {
+  content: ""; position: absolute; bottom: -7px; left: 50%; width: 12px; height: 12px;
+  background: inherit; border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink);
+  transform: translateX(-50%) rotate(45deg);
+}
+.bubble .say:empty { display: none; }
+.say b { font-weight: 700; }
+.say .muted { color: #6b7194; font-size: .85rem; }
+.pet.waiting .say { background: var(--sun); font-size: 1.05rem; animation: nudge 1.6s ease-in-out infinite; }
+.pet.done .say { background: var(--sun-soft); }
+
+.critter { width: 128px; height: 128px; overflow: visible; filter: var(--rim); }
+.critter .body, .critter .ears, .critter .bow, .critter .hand { fill: var(--c); }
+.critter .stroke { stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.critter .ink { fill: var(--ink); }
+.critter .cheek { fill: #ff8fab; opacity: .5; }
+.critter .shine { fill: #fff; }
+.critter .shadow { fill: var(--shadow); filter: none; }
+.critter .acc, .critter .face > g, .critter .arm, .critter .z, .critter .spark { display: none; }
+.pet[data-acc="1"] .acc.ears, .pet[data-acc="2"] .acc.antenna,
+.pet[data-acc="3"] .acc.sprout, .pet[data-acc="4"] .acc.bow { display: inline; }
+
+.pet .face .eyes-open, .pet .face .smile { display: inline; }
+.pet.sleeping .face .eyes-open, .pet.done .face .eyes-open { display: none; }
+.pet.sleeping .face .eyes-closed { display: inline; }
+.pet.done .face .eyes-happy { display: inline; }
+.pet.waiting .face .smile { display: none; }
+.pet.waiting .face .mouth-o { display: inline; }
+.pet.waiting .arm { display: inline; }
+.pet.working .spark { display: inline; }
+.pet.sleeping .z { display: inline; }
+.pet.thinking .eyes-open { transform: translateY(-3px); }
+
+.mover { transform-box: fill-box; transform-origin: 50% 100%; }
+.pet.working .mover { animation: bounce .55s ease-in-out infinite alternate; }
+.pet.thinking .mover { animation: sway 2.4s ease-in-out infinite; }
+.pet.waiting .mover { animation: hop .9s ease-in-out infinite; }
+.pet.done .mover { animation: cheer .7s ease-out 2; }
+.pet.sleeping .mover { animation: breathe 3.6s ease-in-out infinite; }
+.pet.sleeping .critter { filter: var(--rim) saturate(.55); }
+.arm { transform-origin: 98px 72px; animation: wave .5s ease-in-out infinite alternate; }
+.spark { animation: twinkle .9s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+.z { animation: float 3.6s ease-in infinite; opacity: 0; }
+.z.z2 { animation-delay: 1.2s; } .z.z3 { animation-delay: 2.4s; }
+.critter .z text { font: 700 16px "Mali", sans-serif; fill: var(--ink-soft); }
+.critter .eyes-open circle.ink { animation: blink 5s infinite; transform-box: fill-box; transform-origin: center; }
+
+@keyframes bounce { from { transform: translateY(0) scale(1.04, .96); } to { transform: translateY(-10px) scale(.97, 1.03); } }
+@keyframes sway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes hop { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-16px); } }
+@keyframes cheer { 0% { transform: translateY(0); } 40% { transform: translateY(-14px) rotate(-6deg); } 100% { transform: translateY(0); } }
+@keyframes breathe { 0%,100% { transform: scale(1, 1); } 50% { transform: scale(1.03, .97); } }
+@keyframes wave { from { transform: rotate(-12deg); } to { transform: rotate(18deg); } }
+@keyframes twinkle { from { transform: scale(.6) rotate(0); opacity: .5; } to { transform: scale(1.1) rotate(25deg); opacity: 1; } }
+@keyframes float { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(14px, -26px); } }
+@keyframes blink { 0%,94%,100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+@keyframes nudge { 0%,100% { transform: rotate(0); } 10% { transform: rotate(-3deg); } 20% { transform: rotate(3deg); } 30% { transform: rotate(0); } }
+@keyframes dots { 0%,20% { opacity: .2; } 50% { opacity: 1; } 100% { opacity: .2; } }
+.dots span { animation: dots 1.2s infinite; } .dots span:nth-child(2) { animation-delay: .2s; } .dots span:nth-child(3) { animation-delay: .4s; }
+
+.tag {
+  margin-top: 2px; background: var(--paper); border: 2.5px solid var(--ink); border-radius: 12px;
+  padding: 3px 12px 4px; text-align: center; max-width: 200px; position: relative; z-index: 2;
+}
+.tag .repo { font-weight: 700; font-size: 1rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag .meta { font-size: .8rem; color: #6b7194; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pet.waiting .tag { background: var(--sun); }
+.pet.waiting .tag .meta { color: var(--ink); }
+
+.details {
+  display: none; margin-top: 10px; width: 240px; text-align: left; background: var(--paper);
+  border: 2.5px solid var(--ink); border-radius: 14px; padding: 10px 12px; font-size: .85rem;
+  color: var(--ink); position: relative; z-index: 3; cursor: default;
+}
+.pet.open .details { display: block; }
+.details .prompt { margin: 0 0 8px; font-weight: 500; }
+.details ol { margin: 0 0 8px; padding-left: 0; list-style: none; max-height: 9.5em; overflow: auto; }
+.details li { display: flex; gap: 8px; padding: 1px 0; }
+.details li time { color: #6b7194; flex: none; font-variant-numeric: tabular-nums; }
+.details .actions { display: flex; gap: 12px; justify-content: space-between; }
+.details a, .details .linkish { color: var(--ink); font: inherit; font-weight: 700; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; }
+  .z { opacity: 1; }
+}
+@media (max-width: 520px) {
+  header { padding: 16px 16px 0; }
+  .field { gap: 4px 12px; padding: 16px 16px 0; }
+  .pet { width: 160px; }
+  .critter { width: 100px; height: 100px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>น้อง potato</h1>
+  <div class="summary" id="summary"></div>
+</header>
+<p class="offline" id="offline">ต่อ server ไม่ติด ลองรัน <code>bun server.ts</code> ในโฟลเดอร์ potato-claude ดูนะ</p>
+<main>
+  <div class="field" id="field"></div>
+  <div class="ground"></div>
+</main>
+
+<template id="pet-tpl">
+  <div class="pet" role="button" tabindex="0" aria-expanded="false">
+    <div class="bubble"><div class="say" aria-live="polite"></div></div>
+    <svg class="critter" viewBox="0 0 120 120" aria-hidden="true">
+      <ellipse class="shadow" cx="60" cy="110" rx="36" ry="6"/>
+      <g class="mover">
+        <g class="acc ears"><path class="ears stroke" d="M32 46 L28 14 L54 30Z"/><path class="ears stroke" d="M88 46 L92 14 L66 30Z"/></g>
+        <g class="acc antenna"><path class="stroke" d="M60 26 Q58 16 64 8" fill="none"/><circle class="stroke" cx="65" cy="7" r="5" fill="#ffc93c"/></g>
+        <g class="acc sprout"><path class="stroke" d="M60 26 L60 12" fill="none"/><path class="stroke" d="M60 14 Q48 4 42 12 Q50 20 60 14Z" fill="#7cc98a"/><path class="stroke" d="M60 12 Q70 0 79 6 Q72 16 60 12Z" fill="#7cc98a"/></g>
+        <g class="arm"><path class="stroke" d="M98 72 Q114 58 110 40" fill="none"/><circle class="hand stroke" cx="110" cy="38" r="6"/></g>
+        <ellipse class="body stroke" cx="44" cy="106" rx="10" ry="5"/>
+        <ellipse class="body stroke" cx="76" cy="106" rx="10" ry="5"/>
+        <path class="body stroke" d="M18 76 C18 40 36 24 60 24 C84 24 102 40 102 76 C102 98 86 106 60 106 C34 106 18 98 18 76Z"/>
+        <g class="acc bow"><path class="stroke" d="M80 30 L68 22 L68 38Z" fill="#ff8fab"/><path class="stroke" d="M80 30 L92 22 L92 38Z" fill="#ff8fab"/><circle class="stroke" cx="80" cy="30" r="4" fill="#ff8fab"/></g>
+        <ellipse class="cheek" cx="36" cy="76" rx="7" ry="4"/>
+        <ellipse class="cheek" cx="84" cy="76" rx="7" ry="4"/>
+        <g class="face">
+          <g class="eyes-open"><circle class="ink" cx="47" cy="64" r="5.5"/><circle class="ink" cx="73" cy="64" r="5.5"/><circle class="shine" cx="49" cy="62" r="1.8"/><circle class="shine" cx="75" cy="62" r="1.8"/></g>
+          <g class="eyes-closed"><path class="stroke" d="M41 65 Q47 69 53 65" fill="none"/><path class="stroke" d="M67 65 Q73 69 79 65" fill="none"/></g>
+          <g class="eyes-happy"><path class="stroke" d="M41 66 Q47 58 53 66" fill="none"/><path class="stroke" d="M67 66 Q73 58 79 66" fill="none"/></g>
+          <g class="smile"><path class="stroke" d="M55 75 Q60 80 65 75" fill="none"/></g>
+          <g class="mouth-o"><ellipse class="ink" cx="60" cy="78" rx="4" ry="5"/></g>
+        </g>
+        <path class="spark" d="M100 30 L103 37 L110 40 L103 43 L100 50 L97 43 L90 40 L97 37Z" fill="#ffc93c" stroke="#2e3350" stroke-width="2" stroke-linejoin="round"/>
+      </g>
+      <g class="z z1"><text x="92" y="38">z</text></g>
+      <g class="z z2"><text x="96" y="30">z</text></g>
+      <g class="z z3"><text x="100" y="22">Z</text></g>
+    </svg>
+    <div class="tag"><span class="repo"></span><span class="meta"></span></div>
+    <div class="details">
+      <p class="prompt"></p>
+      <ol class="log"></ol>
+      <div class="actions"><a class="open-code" href="#">เปิดใน VS Code</a><button class="linkish dismiss" type="button">เอาออก</button></div>
+    </div>
+  </div>
+</template>
+
+<script>
+const COLORS = ["#ffb3c7", "#9fd3f0", "#b9e3a0", "#ffd59e", "#c9b6f2", "#f9e07f", "#a8e6dc", "#f6b8a0"];
+const DONE_NAP_MS = 3 * 60_000;    // celebrate, then nap
+const IDLE_NAP_MS = 2 * 60_000;    // session open but untouched
+const STALE_NAP_MS = 30 * 60_000;  // no events at all for this long
+const ORDER = { waiting: 0, working: 1, thinking: 1, done: 2, idle: 3, sleeping: 4 };
+
+const field = document.getElementById("field");
+const tpl = document.getElementById("pet-tpl");
+const els = new Map();
+const openIds = new Set();
+let pets = [];
+
+const hash = (s) => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const clock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); const m = Math.floor(s / 60); return m >= 60 ? `${Math.floor(m / 60)} ชม. ${m % 60} นาที` : `${m}:${String(s % 60).padStart(2, "0")}`; };
+const ago = (ms) => { const m = Math.floor(ms / 60000); if (m < 1) return "เมื่อกี้"; if (m < 60) return `${m} นาทีก่อน`; return `${Math.floor(m / 60)} ชม.ก่อน`; };
+const hhmm = (t) => new Date(t).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+function mood(p, now) {
+  const quiet = now - p.lastEvent;
+  if (p.status === "waiting") return "waiting";
+  if (p.status === "done") return now - (p.doneAt ?? p.lastEvent) > DONE_NAP_MS ? "sleeping" : "done";
+  if (p.status === "idle") return quiet > IDLE_NAP_MS ? "sleeping" : "idle";
+  if (quiet > STALE_NAP_MS) return "sleeping";
+  return p.status;
+}
+
+function speech(p, m, now) {
+  switch (m) {
+    case "working": return `<b>${esc(p.verb)}</b> ${esc(p.target)}`;
+    case "thinking": return `คิดอยู่<span class="dots"><span>.</span><span>.</span><span>.</span></span>`;
+    case "waiting": return `<b>${esc(p.verb || "รอเธออยู่")}</b>${p.target ? `<br><span class="muted">${esc(p.target)}</span>` : ""}`;
+    case "done": {
+      const took = p.turnStart && p.doneAt && p.doneAt - p.turnStart >= 1000 ? clock(p.doneAt - p.turnStart) : "";
+      return `<b>เสร็จแล้ว!</b>${p.toolCount ? `<br><span class="muted">ทำไป ${p.toolCount} อย่าง${took ? ` ใน ${took}` : ""}</span>` : ""}`;
+    }
+    case "idle": return "สวัสดี!";
+    default: return "";
+  }
+}
+
+function meta(p, m, now) {
+  const branch = p.branch ? `${p.branch}  ` : "";
+  if ((m === "working" || m === "thinking" || m === "waiting") && p.turnStart) return `${branch}ทำมา ${clock(now - p.turnStart)}`;
+  return `${branch}${ago(now - p.lastEvent)}`;
+}
+
+function build(p) {
+  const el = tpl.content.firstElementChild.cloneNode(true);
+  el.dataset.id = p.id;
+  const toggle = () => {
+    const open = !el.classList.contains("open");
+    el.classList.toggle("open", open);
+    el.setAttribute("aria-expanded", open);
+    open ? openIds.add(p.id) : openIds.delete(p.id);
+  };
+  el.addEventListener("click", (e) => { if (!e.target.closest(".details")) toggle(); });
+  el.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === el) { e.preventDefault(); toggle(); } });
+  el.querySelector(".dismiss").addEventListener("click", () => fetch(`/dismiss?id=${encodeURIComponent(p.id)}`, { method: "POST" }));
+  field.appendChild(el);
+  return el;
+}
+
+function render() {
+  const now = Date.now();
+  const seen = new Set();
+  const counts = { busy: 0, waiting: 0, sleeping: 0 };
+  const sameRepo = {};
+  for (const p of pets) sameRepo[p.repo] = (sameRepo[p.repo] ?? 0) + 1;
+
+  for (const p of pets) {
+    seen.add(p.id);
+    const el = els.get(p.id) ?? els.set(p.id, build(p)).get(p.id);
+    const m = mood(p, now);
+    if (m === "waiting") counts.waiting++; else if (m === "working" || m === "thinking") counts.busy++; else if (m === "sleeping") counts.sleeping++;
+
+    if (el.dataset.mood !== m) {
+      el.classList.remove("waiting", "working", "thinking", "done", "idle", "sleeping");
+      el.classList.add(m);
+      el.dataset.mood = m;
+    }
+    el.style.order = String(ORDER[m] * 1000 + (hash(p.repo + p.id) % 1000));
+    el.style.setProperty("--c", COLORS[hash(p.repo) % COLORS.length]);
+    el.dataset.acc = sameRepo[p.repo] > 1 ? String(hash(p.id) % 5) : String(hash(p.repo) % 5);
+
+    const say = speech(p, m, now);
+    const sayEl = el.querySelector(".say");
+    if (sayEl.dataset.html !== say) { sayEl.innerHTML = say; sayEl.dataset.html = say; }
+    el.querySelector(".repo").textContent = p.repo;
+    el.querySelector(".meta").textContent = meta(p, m, now);
+    el.setAttribute("aria-label", `${p.repo}: ${sayEl.textContent || "หลับอยู่"}`);
+
+    if (openIds.has(p.id)) {
+      el.querySelector(".prompt").textContent = p.prompt ? `งานล่าสุด: ${p.prompt}` : "ยังไม่ได้รับงาน";
+      el.querySelector(".log").innerHTML = p.log.map((l) => `<li><time>${hhmm(l.t)}</time><span>${esc(l.text)}</span></li>`).join("");
+      el.querySelector(".open-code").href = `vscode://file${encodeURI(p.cwd)}`;
+    }
+  }
+  for (const [id, el] of els) if (!seen.has(id)) { el.remove(); els.delete(id); openIds.delete(id); }
+
+  const sum = [];
+  if (counts.waiting) sum.push(`<span class="hot">รอเธอ ${counts.waiting}</span>`);
+  if (counts.busy) sum.push(`<span>ทำงาน ${counts.busy}</span>`);
+  if (counts.sleeping) sum.push(`<span>หลับ ${counts.sleeping}</span>`);
+  document.getElementById("summary").innerHTML = sum.join("");
+  document.title = counts.waiting ? `🙋 ${counts.waiting} รอเธอ  น้อง potato` : counts.busy ? `⚡ ${counts.busy} ทำงาน  น้อง potato` : "น้อง potato";
+
+  let empty = document.getElementById("empty");
+  if (!pets.length && !empty) {
+    empty = document.createElement("p");
+    empty.id = "empty"; empty.className = "empty";
+    empty.textContent = "ยังไม่มีน้องตัวไหนตื่นเลย เปิด Claude Code ใน repo ไหนก็ได้ แล้วน้องจะเดินมาตรงนี้เอง";
+    field.before(empty);
+  } else if (pets.length && empty) empty.remove();
+}
+
+function connect() {
+  const es = new EventSource("/stream");
+  const offline = document.getElementById("offline");
+  es.onmessage = (e) => { pets = JSON.parse(e.data); offline.classList.remove("show"); render(); };
+  es.onerror = () => offline.classList.add("show");
+}
+connect();
+setInterval(render, 1000);
+render();
+</script>
+</body>
+</html>
