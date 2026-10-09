@@ -1,7 +1,7 @@
-// น้อง potato — turns Claude Code hook events into little creatures on a web page.
+// น้อง potato — turns Claude Code and Codex hook events into little creatures on a web page.
 // Run: bun server.ts  → open http://localhost:4747
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 const PORT = Number(process.env.NONG_POTATO_PORT ?? 4747);
 const DIR = import.meta.dir;
@@ -9,10 +9,15 @@ const STATE_FILE = join(DIR, "state.json");
 const PAGE_FILE = join(DIR, "index.html");
 const LOG_MAX = 12;
 const PRUNE_AFTER_MS = 12 * 60 * 60 * 1000;
+const HELPER_LEAVE_MS = 3 * 60 * 1000;   // finished subagents wave goodbye, then go home
+const HELPER_STALE_MS = 30 * 60 * 1000;  // subagents that never reported back
 
 type Status = "idle" | "thinking" | "working" | "waiting" | "done";
 type Pet = {
   id: string;
+  provider?: "claude" | "codex";
+  parent?: string;    // set on subagent pets: the session that spawned them
+  agentType?: string;
   cwd: string;
   repo: string;
   branch: string;
@@ -46,9 +51,12 @@ function gitInfo(cwd: string) {
     }
   };
   const top = run(["rev-parse", "--show-toplevel"]);
+  // In a worktree (e.g. .claude/worktrees/agent-…) name the pet after the main repo, not the worktree folder
+  const common = top ? run(["rev-parse", "--path-format=absolute", "--git-common-dir"]) : "";
+  const main = common.endsWith("/.git") ? dirname(common) : top;
   const info = {
     at: Date.now(),
-    repo: basename(top || cwd) || cwd,
+    repo: basename(main || cwd) || cwd,
     branch: top ? run(["branch", "--show-current"]) || run(["rev-parse", "--short", "HEAD"]) : "",
   };
   gitCache.set(cwd, info);
@@ -68,6 +76,7 @@ function describe(tool: string, input: any): { verb: string; target: string } {
     case "Read": return { verb: "อ่าน", target: file(input.file_path) };
     case "Edit":
     case "MultiEdit": return { verb: "แก้", target: file(input.file_path) };
+    case "apply_patch": return { verb: "แก้", target: short(input.description || file(input.file_path) || "ไฟล์", 40) };
     case "Write": return { verb: "เขียน", target: file(input.file_path) };
     case "NotebookEdit": return { verb: "แก้", target: file(input.notebook_path) };
     case "Bash": return { verb: "รัน", target: short(input.description || input.command) };
@@ -81,6 +90,7 @@ function describe(tool: string, input: any): { verb: string; target: string } {
     case "WebSearch": return { verb: "เสิร์ช", target: `“${short(input.query, 32)}”` };
     case "Agent":
     case "Task": return { verb: "ส่งผู้ช่วยไป", target: short(input.description, 40) };
+    case "Workflow": return { verb: "สั่งทีมผู้ช่วย", target: "" };
     case "TodoWrite": return { verb: "จดลิสต์งาน", target: "" };
     case "Skill": return { verb: "ใช้สกิล", target: short(input.skill, 32) };
     case "AskUserQuestion": return { verb: "มีคำถาม", target: "" };
@@ -92,23 +102,29 @@ function describe(tool: string, input: any): { verb: string; target: string } {
 
 // --- event → state ---
 function apply(ev: any) {
-  const id = String(ev.session_id ?? "");
+  const session = String(ev.session_id ?? "");
   const name = String(ev.hook_event_name ?? "");
-  if (!id || !name) return false;
+  if (!session || !name) return false;
   const now = Date.now();
+  const provider = ev.provider === "codex" ? "codex" : "claude";
+  const sessionKey = provider === "codex" ? `codex:${session}` : session;
+  // Subagents share their session's id; agent_id tells them apart, so each gets its own pet
+  const agentId = ev.agent_id ? String(ev.agent_id) : "";
+  const id = agentId ? `${sessionKey}/${agentId}` : sessionKey;
 
   if (name === "SessionEnd") {
-    delete pets[id];
+    for (const [k, p] of Object.entries(pets)) if (k === sessionKey || p.parent === sessionKey) delete pets[k];
     return true;
   }
 
   const cwd = String(ev.cwd ?? pets[id]?.cwd ?? "");
   const { repo, branch } = gitInfo(cwd);
   const pet: Pet = (pets[id] ??= {
-    id, cwd, repo, branch, status: "idle", verb: "", target: "", prompt: "",
+    id, provider, cwd, repo, branch, status: "idle", verb: "", target: "", prompt: "",
     turnStart: null, lastEvent: now, doneAt: null, toolCount: 0, log: [],
   });
-  Object.assign(pet, { cwd, repo, branch, lastEvent: now });
+  Object.assign(pet, { provider, cwd, repo, branch, lastEvent: now });
+  if (agentId) Object.assign(pet, { parent: sessionKey, agentType: String(ev.agent_type ?? "") });
   const log = (text: string) => {
     pet.log.unshift({ t: now, text });
     pet.log.length = Math.min(pet.log.length, LOG_MAX);
@@ -134,6 +150,16 @@ function apply(ev: any) {
       log(`${d.verb} ${d.target}`.trim());
       break;
     }
+    case "PermissionRequest": {
+      const d = describe(String(ev.tool_name ?? ""), ev.tool_input);
+      Object.assign(pet, {
+        status: "waiting", ...d, verb: "รออนุญาต",
+        target: [d.verb, d.target].filter(Boolean).join(" "), doneAt: null,
+      });
+      pet.turnStart ??= now;
+      log(`รออนุญาต: ${d.verb} ${d.target}`.trim());
+      break;
+    }
     case "PostToolUse":
       if (pet.status === "waiting") pet.status = "working";
       break;
@@ -154,8 +180,19 @@ function apply(ev: any) {
       Object.assign(pet, { status: "done", doneAt: now, verb: "", target: "" });
       log("เสร็จแล้ว");
       break;
+    case "Interrupt":
+      Object.assign(pet, { status: "idle", verb: "", target: "", turnStart: null });
+      log("หยุดชั่วคราว");
+      break;
+    case "SubagentStart":
+      Object.assign(pet, { status: "thinking", verb: "ผู้ช่วยกำลังเริ่ม", target: String(ev.agent_type ?? "") });
+      log(`ผู้ช่วยเริ่มทำงาน${ev.agent_type ? `: ${short(ev.agent_type, 40)}` : ""}`);
+      break;
     case "SubagentStop":
-      log("ผู้ช่วยกลับมาแล้ว");
+      if (agentId) {
+        Object.assign(pet, { status: "done", doneAt: now, verb: "", target: "" });
+        log("เสร็จแล้ว");
+      } else log("ผู้ช่วยกลับมาแล้ว");
       break;
     default:
       return false;
@@ -164,8 +201,15 @@ function apply(ev: any) {
 }
 
 function prune() {
-  const cutoff = Date.now() - PRUNE_AFTER_MS;
-  for (const [id, p] of Object.entries(pets)) if (p.lastEvent < cutoff) delete pets[id];
+  const now = Date.now();
+  let gone = false;
+  for (const [id, p] of Object.entries(pets)) {
+    const old = p.parent
+      ? (p.status === "done" && now - (p.doneAt ?? p.lastEvent) > HELPER_LEAVE_MS) || now - p.lastEvent > HELPER_STALE_MS
+      : now - p.lastEvent > PRUNE_AFTER_MS;
+    if (old) { delete pets[id]; gone = true; }
+  }
+  return gone;
 }
 
 // --- persist + broadcast ---
@@ -187,7 +231,7 @@ setInterval(() => {
     try { c.enqueue(enc.encode(": ping\n\n")); } catch { clients.delete(c); }
   }
 }, 20_000);
-setInterval(() => { prune(); changed(); }, 10 * 60_000);
+setInterval(() => { if (prune()) changed(); }, 30_000);
 
 const server = Bun.serve({
   hostname: "127.0.0.1",
@@ -237,4 +281,9 @@ const server = Bun.serve({
 });
 
 prune();
+// pets saved before worktree-aware naming may carry a worktree folder as their repo
+for (const p of Object.values(pets)) {
+  const { repo, branch } = gitInfo(p.cwd);
+  Object.assign(p, { repo, branch });
+}
 console.log(`🥔 น้อง potato is up at http://localhost:${server.port}`);
